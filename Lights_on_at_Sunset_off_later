@@ -6,9 +6,15 @@ blueprint:
     target_light:
       name: Light
       description: Light (or Light Group) to be turned on/off
+      selector:
+        entity:
+	  domain: light
     off_time:
       name: Time
       description: Time (HH:MM) for the Light (or Light Group) to be turned off
+      selector:
+        entity:
+	  domain: time
 
 trigger:
   - platform: sun
