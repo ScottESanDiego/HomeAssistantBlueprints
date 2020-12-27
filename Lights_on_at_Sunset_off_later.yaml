@@ -9,26 +9,26 @@ blueprint:
       selector:
         entity:
           domain: light
-  off_time:
+
+    off_time:
       name: Time
-      description: Time (HH:MM) for the Light (or Light Group) to be turned off
+      description: Time (HH:MM) to turn off Light
+      selector:
+        time:
 
 trigger:
   - platform: sun
     event: sunset
 
 action:
-  - type: turn_on
-    entitiy_id: !input target_light
-    domain: light
+  - entity_id: !input target_light
+    service: light.turn_on
 
   - wait_for_trigger:
     - platform: time
       at: !input off_time
 
-  - type: turn_off
-    entity_id: !input target_light
-    domain: light
+  - entity_id: !input target_light
+    service: light.turn_off
 
 mode: single
-
