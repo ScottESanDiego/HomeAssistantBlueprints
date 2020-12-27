@@ -9,7 +9,18 @@ blueprint:
       selector:
         entity:
           domain: light
-
+          
+    target_brightness:
+      name: Brightness
+      description: Brightness to set light to (in %, normall 15)
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 5
+          unit_of_measurement: "%"
+          mode: slider
+      
     off_time:
       name: Time
       description: Time (HH:MM) to turn off Light
@@ -23,6 +34,8 @@ trigger:
 action:
   - entity_id: !input target_light
     service: light.turn_on
+    data:
+      brightness: !input target_brightness
 
   - wait_for_trigger:
     - platform: time
