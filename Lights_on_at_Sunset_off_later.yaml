@@ -9,39 +9,39 @@ blueprint:
       selector:
         entity:
           domain: light
-          
     target_brightness:
       name: Brightness
       description: Brightness to set light to (in %, normall 15)
       selector:
         number:
-          min: 0
-          max: 100
-          step: 5
-          unit_of_measurement: "%"
+          min: 0.0
+          max: 100.0
+          step: 5.0
+          unit_of_measurement: '%'
           mode: slider
-      
     off_time:
       name: Time
       description: Time (HH:MM) to turn off Light
       selector:
-        time:
-
+        time: {}
 trigger:
-  - platform: sun
-    event: sunset
-
+- platform: sun
+  event: sunset
+- platform: time
+  at:
+    - !input off_time
 action:
-  - entity_id: !input target_light
-    service: light.turn_on
-    data:
-      brightness: !input target_brightness
-
-  - wait_for_trigger:
-    - platform: time
-      at: !input off_time
-
-  - entity_id: !input target_light
-    service: light.turn_off
-
-mode: single
+  - choose:
+    # If we are triggered, but before the "off_time", it must be sunset, so turn the light on.
+    - conditions:
+      - condition: time
+        before: !input 'off_time'
+      sequence:
+        - service: light.turn_on
+          data:
+            brightness: !input 'target_brightness'
+          entity_id: !input 'target_light'
+    # If we didn't match the before trigger, it must be the time trigger, so turn the light off.
+    default:
+      - service: light.turn_off
+        entity_id: !input 'target_light'
