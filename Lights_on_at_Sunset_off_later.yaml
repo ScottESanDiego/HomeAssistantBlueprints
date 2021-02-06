@@ -46,10 +46,12 @@ action:
 
     # If we were triggered after off_time or before sunset turn the light off.
     - conditions:
-      - condition: sun
-        before: sunset
-      - condition: time
-        after: !input 'off_time'
+      - condition: or
+        conditions:
+          - condition: sun
+            before: sunset
+          - condition: time
+            after: !input 'off_time'
       sequence:
         - service: light.turn_off
           entity_id: !input 'target_light'
@@ -58,5 +60,4 @@ action:
     default:
       - service: system_log.write
         data:
-          message: "Automation triggered for no reason"
-          level: warning
+          message: "Automation triggered without reason"

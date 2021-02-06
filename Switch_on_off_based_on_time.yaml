@@ -38,10 +38,12 @@ action:
 
     # If we were triggered after off_time or before on_time the light off.
     - conditions:
-      - condition: time
-        before: !input 'on_time'
-      - condition: time
-        after: !input 'off_time'
+      - condition: or
+        conditions:
+          - condition: time
+            before: !input 'on_time'
+          - condition: time
+            after: !input 'off_time'
       sequence:
         - service: switch.turn_off
           entity_id: !input 'target_switch'
@@ -50,5 +52,4 @@ action:
     default:
       - service: system_log.write
         data:
-          message: "Automation triggered for no reason"
-          level: warning
+          message: "Automation triggered without reason"
