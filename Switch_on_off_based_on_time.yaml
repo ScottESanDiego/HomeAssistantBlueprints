@@ -1,0 +1,54 @@
+blueprint:
+  name: Turn a switch on or off based on time
+  description: Make a switch turn on or off based on times
+  domain: automation
+  input:
+    target_switch:
+      name: Switch
+      description: Switch to be turned on/off
+      selector:
+        entity:
+          domain: switch
+    on_time:
+      name: On Time
+      description: Time (HH:MM) to turn on
+      selector:
+        time: {}
+    off_time:
+      name: Off Time
+      description: Time (HH:MM) to turn off
+      selector:
+        time: {}
+trigger:
+- platform: time
+  at:
+    - !input on_time
+    - !input off_time
+action:
+  - choose:
+    # If we are triggered after on_time and before off_time, turn the light on.
+    - conditions:
+      - condition: time
+        after: !input 'on_time'
+      - condition: time
+        before: !input 'off_time'
+      sequence:
+        - service: switch.turn_on
+          entity_id: !input 'target_switch'
+
+    # If we were triggered after off_time or before on_time the light off.
+    - conditions:
+      - condition: time
+        before: !input 'on_time'
+      - condition: time
+        after: !input 'off_time'
+      sequence:
+        - service: switch.turn_off
+          entity_id: !input 'target_switch'
+
+    # If we didn't match above, just do nothing
+    default:
+      - service: system_log.write
+        data:
+          message: "Automation triggered for no reason"
+          level: warning

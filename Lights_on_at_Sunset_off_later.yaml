@@ -32,8 +32,10 @@ trigger:
     - !input off_time
 action:
   - choose:
-    # If we are triggered, but before the "off_time", it must be sunset, so turn the light on.
+    # If we are triggered after sunset but before off_time, turn the light on.
     - conditions:
+      - condition: sun
+        after: sunset
       - condition: time
         before: !input 'off_time'
       sequence:
@@ -41,7 +43,20 @@ action:
           data:
             brightness: !input 'target_brightness'
           entity_id: !input 'target_light'
-    # If we didn't match the before trigger, it must be the time trigger, so turn the light off.
+
+    # If we were triggered after off_time or before sunset turn the light off.
+    - conditions:
+      - condition: sun
+        before: sunset
+      - condition: time
+        after: !input 'off_time'
+      sequence:
+        - service: light.turn_off
+          entity_id: !input 'target_light'
+
+    # If we didn't match above, just do nothing
     default:
-      - service: light.turn_off
-        entity_id: !input 'target_light'
+      - service: system_log.write
+        data:
+          message: "Automation triggered for no reason"
+          level: warning
