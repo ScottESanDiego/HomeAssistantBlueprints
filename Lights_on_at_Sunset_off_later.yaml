@@ -5,10 +5,11 @@ blueprint:
   input:
     target_light:
       name: Light
-      description: Light (or Light Group) to be turned on/off
+      description: Lights (or Light Groups) to be turned on/off
       selector:
-        entity:
-          domain: light
+        target:
+          entity:
+            domain: light
     target_brightness:
       name: Brightness
       description: Brightness to set light to (in %, normall 15)
@@ -42,7 +43,7 @@ action:
         - service: light.turn_on
           data:
             brightness: !input 'target_brightness'
-          entity_id: !input 'target_light'
+          target: !input 'target_light'
 
     # If we were triggered after off_time or before sunset turn the light off.
     - conditions:
@@ -54,7 +55,7 @@ action:
             after: !input 'off_time'
       sequence:
         - service: light.turn_off
-          entity_id: !input 'target_light'
+          target: !input 'target_light'
 
     # If we didn't match above, just do nothing
     default:
