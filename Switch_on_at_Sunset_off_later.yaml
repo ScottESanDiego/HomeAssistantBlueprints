@@ -1,48 +1,44 @@
 blueprint:
-  name: Turn a switch on or off based on time
-  description: Make a switch turn on or off based on times
+  name: On at Sunset off later
+  description: Turn a Switch on at Sunset, off at a specified time
   domain: automation
   input:
     target_switch:
       name: Switch
-      description: Switch to be turned on/off
+      description: Switches to be turned on/off
       selector:
         target:
           entity:
             domain: switch
-    on_time:
-      name: On Time
-      description: Time (HH:MM) to turn on
-      selector:
-        time: {}
     off_time:
-      name: Off Time
-      description: Time (HH:MM) to turn off
+      name: Time
+      description: Time (HH:MM) to turn off Switches
       selector:
         time: {}
 trigger:
+- platform: sun
+  event: sunset
 - platform: time
   at:
-    - !input on_time
     - !input off_time
 action:
   - choose:
-    # If we are triggered after on_time and before off_time, turn the light on.
+    # If we are triggered after sunset but before off_time, turn the switches on.
     - conditions:
-      - condition: time
-        after: !input 'on_time'
+      - condition: sun
+        after: sunset
       - condition: time
         before: !input 'off_time'
       sequence:
         - service: switch.turn_on
           target: !input 'target_switch'
 
-    # If we were triggered after off_time or before on_time the light off.
+    # If we were triggered after off_time or before sunset turn the switches off.
     - conditions:
       - condition: or
         conditions:
-          - condition: time
-            before: !input 'on_time'
+          - condition: sun
+            before: sunset
           - condition: time
             after: !input 'off_time'
       sequence:
