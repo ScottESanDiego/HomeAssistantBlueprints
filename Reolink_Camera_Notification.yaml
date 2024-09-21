@@ -1,0 +1,144 @@
+blueprint:
+  name: Reolink Notification
+  description: A blueprint for generating notifications based on Reolink camera triggers.
+  domain: automation
+  input:
+    alias:
+      name: Alias
+      description: The alias for the automation.
+      default: Reolink Notification
+      type: text
+    trigger_entities:
+      name: Trigger Entities
+      description: The entities that will trigger the automation.
+      default:
+        - entity_id: binary_sensor.reolink_outdoorgarageeast_person
+        - entity_id: binary_sensor.reolink_outdoorgarageeast_vehicle
+        - entity_id: binary_sensor.reolink_outdoorgarageeast_animal
+      type: list
+      selector:
+        entity:
+          multiple: true
+          domain: binary_sensor
+    trigger_icons:
+      name: Trigger Icons
+      description: The MDI icons to use for each trigger entity (in the same order).
+      default:
+        - mdi:walk
+        - mdi:car-side
+        - mdi:rabbit
+      type: list
+    action_delay:
+      name: Warmup Delay
+      description: The delay before a notification is sent.  This should be enough time for the camera to upload a snapshot or two.
+      default: "00:00:03"
+      type: time
+    ftp_directory:
+      name: FTP Directory
+      description: The directory where the image and video will be fetched from.
+      default: /ftproot
+      type: text
+    ftp_filename:
+      name: FTP Filename
+      description: The filename prefix of the images and videos to be fetched.
+      default: Reolink-OutdoorGarageEast
+      type: text
+    image_prompt:
+      name: Image Prompt
+      description: The prompt to be used for image analysis.
+      default: >-
+        What is happening in this picture?  Focus on the subject not the
+        surroundings.  If the subject is parked, assume it is actually moving.
+        The description needs to be short enough to fit in a phone
+        notification. 
+      type: text
+    notification_target:
+      name: Notification Target
+      description: The target for the notification.
+      default: notify.melissa_and_scotte_phones
+      type: text
+    notification_message:
+      name: Notification Message
+      description: The message to be included in the notification.
+      default: Camera Notification
+      type: text
+    notification_channel:
+      name: Notification Channel
+      description: The channel for the notification.
+      default: Cameras
+      type: text
+    notification_group:
+      name: Notification Group
+      description: The group for the notification.
+      default: Camera Notification 
+      type: text
+    camera_entity_id:
+      name: Camera Entity ID
+      description: The entity ID of the camera for the Live view.
+      default: camera.reolink_outdoorgarageeast_clear
+      selector:
+        entity:
+          domain: camera
+    talk_dashboard_url:
+      name: Talk Dashboard URL
+      description: The URL of the Lovelace dashboard that supports 2-way audio.
+      default: /dashboard-cameras/garageoutdooreast
+      type: text
+    final_delay:
+      name: Cooldown Time
+      description: The delay after the notification is sent before any further notifications will be sent.
+      default: "00:01:00"
+      type: time
+
+  trigger:
+    - platform: state
+      entity_id: "{{ trigger_entity.entity_id }}"
+      to: "on"
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 0
+      id: "{{ trigger_entity.entity_id.split('.')[-1] }}"
+      variables:
+        trigger_entity: "{{ trigger_entities | selectattr('entity_id', 'eq', trigger.entity_id) | first }}" 
+        trigger_icon: "{{ trigger_icons[trigger_entities | selectattr('entity_id', 'eq', trigger.entity_id) | first | index] }}" 
+
+  condition: []
+
+  action:
+    - delay: !input action_delay
+      enabled: true
+    - service: fetch_latest_file.fetch
+      data:
+        FileName: !input ftp_filename
+        Directory: !input ftp_directory
+    - service: google_generative_ai_conversation.generate_content
+      metadata: {}
+      data:
+        prompt: !input image_prompt
+        image_filename: "{{ state_attr('fetch_latest_file.file','image') }}"
+      response_variable: gemini_response
+    - service: !input notification_target
+      data:
+        message: !input notification_message
+        data:
+          image: https://scotte.ai{{ state_attr('fetch_latest_file.file','image') }}
+          notification_icon: "{{ trigger_icon }}"
+          channel: !input notification_channel
+          group: !input notification_group
+          visibility: private
+          priority: high
+          ttl: 0 
+          sticky: "true"
+          subject: "{{ gemini_response['text'] }}"
+          clickAction: https://scotte.ai{{ state_attr('fetch_latest_file.file','video') }}
+          actions:
+            - action: URI
+              title: Live
+              uri: entityId:!input camera_entity_id
+            - action: URI
+              title: Talk
+              uri: !input talk_dashboard_url
+    - delay: !input final_delay
+
+  mode: single
