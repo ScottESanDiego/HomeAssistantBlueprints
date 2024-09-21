@@ -1,23 +1,37 @@
 blueprint:
-  name: Reolink Garage Door East Notification (Fixed)
-  description: A fixed blueprint for generating notifications based on Reolink camera triggers.
+  name: Reolink Camera Notification
+  description: ""
   domain: automation
-
+  
   trigger:
     - platform: state
       entity_id:
         - binary_sensor.reolink_outdoorgarageeast_person
+      to: "on"
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 0
+      id: walk
+    - platform: state
+      entity_id:
         - binary_sensor.reolink_outdoorgarageeast_vehicle
+      to: "on"
+      for:
+        hours: 0
+        minutes: 0
+        seconds: 0
+      id: car-side
+    - platform: state
+      entity_id:
         - binary_sensor.reolink_outdoorgarageeast_animal
       to: "on"
       for:
         hours: 0
         minutes: 0
         seconds: 0
-      id: "{{ trigger.entity_id.split('.')[-1] }}"
-
+      id: rabbit
   condition: []
-
   action:
     - delay:
         hours: 0
@@ -25,21 +39,21 @@ blueprint:
         seconds: 3
         milliseconds: 0
       enabled: true
-    - service: fetch_latest_file.fetch
+    - action: fetch_latest_file.fetch
       data:
         FileName: Reolink-OutdoorGarageEast
         Directory: /ftproot
-    - service: google_generative_ai_conversation.generate_content
+    - action: google_generative_ai_conversation.generate_content
       metadata: {}
       data:
         prompt: >-
-          What is happening in this picture?  Focus on the subject not the
-          surroundings.  If the subject is parked, assume it is actually moving.
+          What is happening in this picture?  Focus on the subject not the
+          surroundings.  If the subject is parked, assume it is actually moving.
           The description needs to be short enough to fit in a phone
-          notification. 
+          notification. 
         image_filename: "{{ state_attr('fetch_latest_file.file','image') }}"
       response_variable: gemini_response
-    - service: notify.melissa_and_scotte_phones
+    - action: notify.melissa_and_scotte_phones
       data:
         message: Reolink Garage East
         data:
@@ -65,5 +79,5 @@ blueprint:
         minutes: 1
         seconds: 0
         milliseconds: 0
-
   mode: single
+
