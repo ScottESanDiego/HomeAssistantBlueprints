@@ -1,83 +1,153 @@
 blueprint:
   name: Reolink Camera Notification
-  description: ""
+  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v0.1.3 or newer), Google Generative AI, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS. 
   domain: automation
-  
-  trigger:
-    - platform: state
-      entity_id:
+  input:
+    trigger_sensors:
+      name: Binary Sensors that will trigger a notification
+      description: The entities that will trigger the automation.  Typically these would be the sensors from the Reolink camera.
+      default:
         - binary_sensor.reolink_outdoorgarageeast_person
-      to: "on"
-      for:
-        hours: 0
-        minutes: 0
-        seconds: 0
-      id: walk
-    - platform: state
-      entity_id:
         - binary_sensor.reolink_outdoorgarageeast_vehicle
-      to: "on"
-      for:
-        hours: 0
-        minutes: 0
-        seconds: 0
-      id: car-side
-    - platform: state
-      entity_id:
         - binary_sensor.reolink_outdoorgarageeast_animal
-      to: "on"
-      for:
-        hours: 0
-        minutes: 0
-        seconds: 0
-      id: rabbit
-  condition: []
-  action:
-    - delay:
-        hours: 0
-        minutes: 0
-        seconds: 3
-        milliseconds: 0
-      enabled: true
-    - action: fetch_latest_file.fetch
-      data:
-        FileName: Reolink-OutdoorGarageEast
-        Directory: /ftproot
-    - action: google_generative_ai_conversation.generate_content
-      metadata: {}
-      data:
-        prompt: >-
-          What is happening in this picture?  Focus on the subject not the
-          surroundings.  If the subject is parked, assume it is actually moving.
-          The description needs to be short enough to fit in a phone
-          notification. 
-        image_filename: "{{ state_attr('fetch_latest_file.file','image') }}"
-      response_variable: gemini_response
-    - action: notify.melissa_and_scotte_phones
-      data:
-        message: Reolink Garage East
-        data:
-          image: https://scotte.ai{{ state_attr('fetch_latest_file.file','image') }}
-          notification_icon: mdi:{{ trigger.id }}
-          channel: Cameras
-          group: Garage East
-          visibility: private
-          priority: high
-          ttl: 0
-          sticky: "true"
-          subject: "{{ gemini_response['text'] }}"
-          clickAction: https://scotte.ai{{ state_attr('fetch_latest_file.file','video') }}
-          actions:
-            - action: URI
-              title: Live
-              uri: entityId:camera.reolink_outdoorgarageeast_clear
-            - action: URI
-              title: Talk
-              uri: /dashboard-cameras/garageoutdooreast
-    - delay:
-        hours: 0
-        minutes: 1
-        seconds: 0
-        milliseconds: 0
-  mode: single
+      selector:
+        entity:
+          multiple: true
+          domain: binary_sensor
+    trigger_icons:
+      name: Trigger Icons
+      description: The icons to use for each trigger entity (in the same order), comma separated.  For example, if the first entity above is for "person", the first icon in this list would be the one you want to appear when that "person" entity was the trigger.  Note that you MUST have as many icons here as you have entities above or things will break.  (When you run this Automation manually, the icon will be a warning icon since there is no sensor that triggered it.)
+      default:
+        - mdi:walk
+        - mdi:car-side
+        - mdi:rabbit
+      selector:
+        text:
+          type: text
+    action_delay:
+      name: Warmup Delay
+      description: The delay in seconds before a notification is sent.  This should be enough time for the camera to upload a snapshot or two.
+      default: "3"
+      selector:
+        number:
+          min: 0
+          max: 360
+          unit_of_measurement: "s"
+    final_delay:
+      name: Cooldown Time
+      description: The delay seconds after the notification is sent before any further notifications will be sent.
+      default: "60"
+      selector:
+        number:
+          min: 0
+          max: 360
+          unit_of_measurement: "s"
+    ftp_directory:
+      name: FTP Directory
+      description: The directory where the image and video will be uploaded to, as seen by Home Assistant and the web server.
+      default: /ftproot
+    ftp_filename:
+      name: FTP Filename
+      description: The filename prefix of the images and videos to be fetched.  Usually this will be what you configured the Reolink camera name to be.
+      default: Reolink-OutdoorGarageEast
+    url_root:
+      name: URL root
+      description: The URL that can be used to access the files in the FTP directory.  For example, if the FTP Directory is accessible as "https://example.org/ftp/" then this would be set to "https:/example.org".
+      default: https://example.org
+    image_prompt:
+      name: Image Prompt
+      description: The prompt to Google Gemini to be used for image analysis.
+      default: >-
+        What is happening in this picture? Focus on the subject not the
+        surroundings. If the subject is parked, assume it is actually moving.
+        The description needs to be short enough to fit in a phone
+        notification.
+      selector:
+        text:
+          type: text
+          multiline: true
+    notification_target:
+      name: Notification Target
+      description: The target for the notification.
+      default: notify.melissa_and_scotte_phones
+    notification_message:
+      name: Notification Message
+      description: The message to be included in the notification.
+      default: Camera Notification
+    notification_group:
+      name: Notification Group
+      description: The group for the notification.
+      default: Camera Notification 
+    camera_entity_id:
+      name: Camera Entity ID
+      description: The entity ID of the camera for the Live view.
+      default: camera.reolink_outdoorgarageeast_clear
+      selector:
+        entity:
+          domain: camera
+    talk_dashboard_url:
+      name: Talk Dashboard URL
+      description: The URL of the Lovelace dashboard that supports 2-way audio.
+      default: /dashboard-cameras/garageoutdooreast
 
+
+trigger:
+- platform: state
+  entity_id: !input 'trigger_sensors' 
+  to: "on"
+  for:
+    hours: 0
+    minutes: 0
+    seconds: 0
+
+variables:
+  # These are mostly kludges to be able to use the inputs as variables. Yuck.
+  camera_entity: !input camera_entity_id
+  url_root_prefix: !input url_root
+  trigger_icons: !input trigger_icons
+  trigger_sensors: !input trigger_sensors
+  # When this action is run manually there is no trigger, so use "mdi:alert" as the icon rather than letting it break trying to look up the trigger.
+  trigger_icon: >
+    {% if trigger.entity_id is not undefined %}
+      {{ trigger_icons[trigger_sensors.index(trigger.entity_id)] }}
+    {% else %}
+      {{ "mdi:alert" }}
+    {% endif %}
+
+action:
+- delay: !input action_delay
+  enabled: true
+- service: fetch_latest_file.fetch
+  data:
+    FileName: !input ftp_filename
+    Directory: !input ftp_directory
+- service: google_generative_ai_conversation.generate_content
+  metadata: {}
+  data:
+    prompt: !input image_prompt
+    image_filename: "{{ state_attr('fetch_latest_file.file','image') }}"
+  response_variable: gemini_response
+- service: !input notification_target
+  data:
+    message: !input notification_message
+    data:
+      image: "{{ url_root_prefix+state_attr('fetch_latest_file.file','image') }}"
+      notification_icon: "{{ trigger_icon }}"
+      channel: Cameras
+      group: !input notification_group
+      visibility: private
+      priority: high
+      ttl: 0 
+      sticky: "true"
+      subject: "{{ gemini_response['text'] }}"
+      clickAction: "{{ url_root_prefix+state_attr('fetch_latest_file.file','video') }}"
+      actions:
+        - action: URI
+          title: Live
+          uri: entityId:{{ camera_entity }}
+        - action: URI
+          title: Talk
+          uri: !input talk_dashboard_url
+- delay: !input final_delay
+
+mode: single
