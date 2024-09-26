@@ -16,14 +16,19 @@ blueprint:
           domain: binary_sensor
     trigger_icons:
       name: Trigger Icons
-      description: The icons to use for each trigger entity (in the same order), comma separated.  For example, if the first entity above is for "person", the first icon in this list would be the one you want to appear when that "person" entity was the trigger.  Note that you MUST have as many icons here as you have entities above or things will break.  (When you run this Automation manually, the icon will be a warning icon since there is no sensor that triggered it.)
+      description: The icons to use for each trigger entity (in the same order).  For example, if the first entity above is for "person", the first icon in this list would be the one you want to appear when that "person" entity was the trigger.  Note that you MUST have as many icons here as you have entities above or things will break.  (When you run this Automation manually, the icon will be a warning icon since there is no sensor that triggered it.)
       default:
-        - mdi:walk
-        - mdi:car-side
-        - mdi:rabbit
+        - "mdi:walk"
+        - "mdi:car-side"
+        - "mdi:rabbit"
       selector:
-        text:
-          type: text
+        select:
+          multiple: true
+          custom_value: true
+          options:
+            - "mdi:walk"
+            - "mdi:car-side"
+            - "mdi:rabbit"
     action_delay:
       name: Warmup Delay
       description: The delay in seconds before a notification is sent.  This should be enough time for the camera to upload a snapshot or two.
@@ -93,7 +98,7 @@ blueprint:
 
 trigger:
 - platform: state
-  entity_id: !input 'trigger_sensors' 
+  entity_id: !input 'trigger_sensors'
   to: "on"
   for:
     hours: 0
@@ -137,7 +142,7 @@ action:
       group: !input notification_group
       visibility: private
       priority: high
-      ttl: 0 
+      ttl: 0
       sticky: "true"
       subject: "{{ gemini_response['text'] }}"
       clickAction: "{{ url_root_prefix+state_attr('fetch_latest_file.file','video') }}"
