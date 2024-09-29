@@ -131,7 +131,7 @@ action:
   response_variable: gemini_response
 - if:
   - condition: template
-    value_template: "{{ 'No Subject Found' in gemini_response.text }}"
+    value_template: "{{ 'No Subject Found' not in gemini_response.text }}"
   then:
     - service: !input notification_target
       data:
