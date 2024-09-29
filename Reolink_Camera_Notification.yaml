@@ -63,10 +63,7 @@ blueprint:
       name: Image Prompt
       description: The prompt to Google Gemini to be used for image analysis.
       default: >-
-        What is happening in this picture? Focus on the subject not the
-        surroundings. If the subject is parked, assume it is actually moving.
-        The description needs to be short enough to fit in a phone
-        notification.
+        What appears to be happening in this picture? Focus on the person, vehicle, or animal, not the surroundings. Provide details on the object.  Assume the subject is probably moving not stationary. If there is no obvious subject, say "No Subject Found". The description needs to be short enough to fit in a phone notification.
       selector:
         text:
           type: text
@@ -132,27 +129,31 @@ action:
     prompt: !input image_prompt
     image_filename: "{{ state_attr('fetch_latest_file.file','image') }}"
   response_variable: gemini_response
-- service: !input notification_target
-  data:
-    message: !input notification_message
-    data:
-      image: "{{ url_root_prefix+state_attr('fetch_latest_file.file','image') }}"
-      notification_icon: "{{ trigger_icon }}"
-      channel: Cameras
-      group: !input notification_group
-      visibility: private
-      priority: high
-      ttl: 0
-      sticky: "true"
-      subject: "{{ gemini_response['text'] }}"
-      clickAction: "{{ url_root_prefix+state_attr('fetch_latest_file.file','video') }}"
-      actions:
-        - action: URI
-          title: Live
-          uri: entityId:{{ camera_entity }}
-        - action: URI
-          title: Talk
-          uri: !input talk_dashboard_url
-- delay: !input final_delay
+- if:
+  - condition: template
+    value_template: "{{ 'No Subject Found' in gemini_response.text }}"
+  then:
+    - service: !input notification_target
+      data:
+        message: !input notification_message
+        data:
+          image: "{{ url_root_prefix+state_attr('fetch_latest_file.file','image') }}"
+          notification_icon: "{{ trigger_icon }}"
+          channel: Cameras
+          group: !input notification_group
+          visibility: private
+          priority: high
+          ttl: 0
+          sticky: "true"
+          subject: "{{ gemini_response['text'] }}"
+          clickAction: "{{ url_root_prefix+state_attr('fetch_latest_file.file','video') }}"
+          actions:
+            - action: URI
+              title: Live
+              uri: entityId:{{ camera_entity }}
+            - action: URI
+              title: Talk
+              uri: !input talk_dashboard_url
+    - delay: !input final_delay
 
 mode: single
