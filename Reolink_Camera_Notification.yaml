@@ -127,7 +127,7 @@ action:
   metadata: {}
   data:
     prompt: !input image_prompt
-    image_filename: "{{ state_attr('fetch_latest_file.file','image') }}"
+    filenames: "{{ state_attr('fetch_latest_file.file','image') }}"
   response_variable: gemini_response
 - if:
   - condition: template
