@@ -1,6 +1,6 @@
 blueprint:
   name: Reolink Camera Notification
-  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v2.0.0 or newer), Google Generative AI, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS. 
+  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v2.0.0 or newer), a default AI entity, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS. 
   domain: automation
   input:
     trigger_sensors:
@@ -61,7 +61,7 @@ blueprint:
       default: https://example.org
     image_prompt:
       name: Image Prompt
-      description: The prompt to Google Gemini to be used for image analysis.
+      description: The prompt to be used for image analysis.
       default: >-
         What appears to be happening in this picture? Focus on the person, vehicle, or animal, not the surroundings. Provide details on the object.  Assume the subject is probably moving not stationary. If there is no obvious subject, say "No Subject Found". The description needs to be short enough to fit in a phone notification.
       selector:
@@ -123,15 +123,18 @@ action:
   data:
     FileName: !input ftp_filename
     Directory: !input ftp_directory
-- service: google_generative_ai_conversation.generate_content
+- service: ai_task.generate_data
   metadata: {}
   data:
-    prompt: !input image_prompt
-    filenames: "{{ state_attr('sensor.fetch_latest_file','Image') }}"
-  response_variable: gemini_response
+    task_name: Describe Picture
+    instructions: !input image_prompt
+    attachments:
+      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file','Image') }}"
+      media_content_type: "image/jpeg"
+  response_variable: ai_response
 - if:
   - condition: template
-    value_template: "{{ 'No Subject Found' not in gemini_response.text }}"
+    value_template: "{{ 'No Subject Found' not in ai_response.data }}"
   then:
     - service: !input notification_target
       data:
@@ -145,7 +148,7 @@ action:
           priority: high
           ttl: 0
           sticky: "true"
-          subject: "{{ gemini_response['text'] }}"
+          subject: "{{ ai_response['data'] }}"
           clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file','Video') }}"
           actions:
             - action: URI
