@@ -32,13 +32,19 @@ blueprint:
     action_delay:
       name: Warmup Delay
       description: The delay in seconds before a notification is sent.  This should be enough time for the camera to upload a snapshot or two.
-      default: "00:00:03"
+      default:
+        hours: 0
+        minutes: 0
+        seconds: 3
       selector:
         duration:
     final_delay:
       name: Cooldown Time
       description: The delay seconds after the notification is sent before any further notifications will be sent.
-      default: "00:01:00"
+      default:
+        hours: 0
+        minutes: 1
+        seconds: 0
       selector:
         duration:
     ftp_directory:
@@ -57,7 +63,7 @@ blueprint:
       name: Image Prompt
       description: The prompt to be used for image analysis.
       default: >-
-        What appears to be happening in this picture? Focus on the person, vehicle, or animal, not the surroundings. Provide details on the object.  Assume the subject is probably moving not stationary. If there is no obvious subject, say "No Subject Found". The description needs to be short enough to fit in a phone notification.
+        What appears to be happening in this picture? Focus on the person, vehicle, or animal, not the surroundings. Provide details on the object.  Assume the subject is probably moving not stationary. If there is no obvious subject, say "No Subject Found". The description needs to be short enough to fit in a phone notification, using no more than 90 characters.
       selector:
         text:
           type: text
