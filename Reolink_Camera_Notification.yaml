@@ -32,21 +32,15 @@ blueprint:
     action_delay:
       name: Warmup Delay
       description: The delay in seconds before a notification is sent.  This should be enough time for the camera to upload a snapshot or two.
-      default: "3"
+      default: "00:00:03"
       selector:
-        number:
-          min: 0
-          max: 360
-          unit_of_measurement: "s"
+        duration:
     final_delay:
       name: Cooldown Time
       description: The delay seconds after the notification is sent before any further notifications will be sent.
-      default: "60"
+      default: "00:01:00"
       selector:
-        number:
-          min: 0
-          max: 360
-          unit_of_measurement: "s"
+        duration:
     ftp_directory:
       name: FTP Directory
       description: The directory where the image and video will be uploaded to, as seen by Home Assistant and the web server.
@@ -146,6 +140,7 @@ action:
           group: !input notification_group
           visibility: private
           priority: high
+          importance: high
           ttl: 0
           sticky: "true"
           subject: "{{ ai_response['data'] }}"
