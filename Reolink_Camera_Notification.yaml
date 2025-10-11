@@ -123,29 +123,18 @@ action:
   data:
     FileName: !input ftp_filename
     Directory: !input ftp_directory
-# "New" ai_task version
-#- service: ai_task.generate_data
-#  metadata: {}
-#  data:
-#    task_name: Describe Picture
-#    instructions: !input image_prompt
-#    attachments:
-#      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file','Image') }}"
-#      media_content_type: "image/jpeg"
-#  response_variable: ai_response
-
-# "Old" Google Generative AI Version, works better for now
-- service: google_generative_ai_conversation.generate_content
+- service: ai_task.generate_data
   metadata: {}
   data:
-    prompt: !input image_prompt
-    filenames: "{{ state_attr('sensor.fetch_latest_file','Image') }}"
+    task_name: Describe Picture
+    instructions: !input image_prompt
+    attachments:
+      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file','Image') }}"
+      media_content_type: "image/jpeg"
   response_variable: ai_response
 - if:
   - condition: template
-#    "New" ai_task version
-#    value_template: "{{ 'No Subject Found' not in ai_response.data }}"
-    value_template: "{{ 'No Subject Found' not in ai_response.text }}"
+    value_template: "{{ 'No Subject Found' not in ai_response.data }}"
   then:
     - service: !input notification_target
       data:
@@ -160,9 +149,7 @@ action:
           importance: high
           ttl: 0
           sticky: "true"
-#          "New" ai_task version
-#          subject: "{{ ai_response['data'] }}"
-          subject: "{{ ai_response['text'] }}"
+          subject: "{{ ai_response['data'] }}"
           clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file','Video') }}"
           actions:
             - action: URI
