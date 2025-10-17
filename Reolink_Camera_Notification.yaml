@@ -121,8 +121,8 @@ action:
   enabled: true
 - service: fetch_latest_file.fetch
   data:
-    FileName: !input ftp_filename
-    Directory: !input ftp_directory
+    filename: !input ftp_filename
+    directory: !input ftp_directory
 - service: ai_task.generate_data
   metadata: {}
   data:
