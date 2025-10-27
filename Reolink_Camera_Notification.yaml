@@ -123,13 +123,14 @@ action:
   data:
     filename: !input ftp_filename
     directory: !input ftp_directory
+    target_id: !input ftp_filename
 - service: ai_task.generate_data
   metadata: {}
   data:
     task_name: Describe Picture
     instructions: !input image_prompt
     attachments:
-      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file','Image') }}"
+      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file', ftp_filename)['Image'] }}"
       media_content_type: "image/jpeg"
   response_variable: ai_response
 - if:
@@ -140,7 +141,7 @@ action:
       data:
         message: !input notification_message
         data:
-          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file','Image') }}"
+          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename)['Image'] }}"
           notification_icon: "{{ trigger_icon }}"
           channel: Cameras
           group: !input notification_group
@@ -150,7 +151,7 @@ action:
           ttl: 0
           sticky: "true"
           subject: "{{ ai_response['data'] }}"
-          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file','Video') }}"
+          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename)['Video'] }}"
           actions:
             - action: URI
               title: Live
