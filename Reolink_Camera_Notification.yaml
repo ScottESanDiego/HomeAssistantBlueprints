@@ -115,22 +115,23 @@ variables:
     {% else %}
       {{ "mdi:alert" }}
     {% endif %}
+  ftp_filename_prefix: !input ftp_filename
 
 action:
 - delay: !input action_delay
   enabled: true
 - service: fetch_latest_file.fetch
   data:
-    filename: !input ftp_filename
+    filename: ftp_filename_prefix
     directory: !input ftp_directory
-    target_id: !input ftp_filename
+    target_id: ftp_filename_prefix
 - service: ai_task.generate_data
   metadata: {}
   data:
     task_name: Describe Picture
     instructions: !input image_prompt
     attachments:
-      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file', filename)['Image'] }}"
+      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file', ftp_filename_prefix)['Image'] }}"
       media_content_type: "image/jpeg"
   response_variable: ai_response
 - if:
@@ -141,7 +142,7 @@ action:
       data:
         message: !input notification_message
         data:
-          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', filename)['Image'] }}"
+          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)['Image'] }}"
           notification_icon: "{{ trigger_icon }}"
           channel: Cameras
           group: !input notification_group
@@ -151,7 +152,7 @@ action:
           ttl: 0
           sticky: "true"
           subject: "{{ ai_response['data'] }}"
-          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', filename)['Video'] }}"
+          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)['Video'] }}"
           actions:
             - action: URI
               title: Live
