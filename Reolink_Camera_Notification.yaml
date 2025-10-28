@@ -104,6 +104,7 @@ trigger:
 
 variables:
   # These are mostly kludges to be able to use the inputs as variables. Yuck.
+  ftp_filename_prefix: !input ftp_filename
   camera_entity: !input camera_entity_id
   url_root_prefix: !input url_root
   trigger_icons: !input trigger_icons
@@ -115,16 +116,15 @@ variables:
     {% else %}
       {{ "mdi:alert" }}
     {% endif %}
-  ftp_filename_prefix: !input ftp_filename
 
 action:
 - delay: !input action_delay
   enabled: true
 - service: fetch_latest_file.fetch
   data:
-    filename: ftp_filename_prefix
+    filename: !input ftp_filename
     directory: !input ftp_directory
-    target_id: ftp_filename_prefix
+    target_id: !input ftp_filename
 - service: ai_task.generate_data
   metadata: {}
   data:
