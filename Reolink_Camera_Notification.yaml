@@ -1,6 +1,6 @@
 blueprint:
   name: Reolink Camera Notification
-  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v2.0.0 or newer), a default AI entity, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS. 
+  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v4.0.1 or newer), a default AI entity, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS. 
   domain: automation
   input:
     trigger_sensors:
@@ -55,6 +55,18 @@ blueprint:
       name: FTP Filename
       description: The filename prefix of the images and videos to be fetched.  Usually this will be what you configured the Reolink camera name to be.
       default: Reolink-OutdoorGarageEast
+    image_extension:
+      name: Image Extension
+      description: The file extension for images (e.g., jpg, png, webp)
+      default: jpg
+      selector:
+        text:
+    video_extension:
+      name: Video Extension
+      description: The file extension for videos (e.g., mp4, mov, mkv)
+      default: mp4
+      selector:
+        text:
     url_root:
       name: URL root
       description: The URL that can be used to access the files in the FTP directory.  For example, if the FTP Directory is accessible as "https://example.org/ftp/" then this would be set to "https:/example.org".
@@ -109,6 +121,8 @@ variables:
   url_root_prefix: !input url_root
   trigger_icons: !input trigger_icons
   trigger_sensors: !input trigger_sensors
+  image_extension: !input image_extension
+  video_extension: !input video_extension
   # When this action is run manually there is no trigger, so use "mdi:alert" as the icon rather than letting it break trying to look up the trigger.
   trigger_icon: >
     {% if trigger.entity_id is not undefined %}
@@ -124,6 +138,9 @@ action:
   data:
     filename: !input ftp_filename
     directory: !input ftp_directory
+    extension:
+      - !input image_extension
+      - !input video_extension
     target_id: !input ftp_filename
 - service: ai_task.generate_data
   metadata: {}
@@ -131,7 +148,7 @@ action:
     task_name: Describe Picture
     instructions: !input image_prompt
     attachments:
-      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file', ftp_filename_prefix)['Image'] }}"
+      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file', ftp_filename_prefix)[image_extension] }}"
       media_content_type: "image/jpeg"
   response_variable: ai_response
 - if:
@@ -142,7 +159,7 @@ action:
       data:
         message: !input notification_message
         data:
-          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)['Image'] }}"
+          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)[image_extension] }}"
           notification_icon: "{{ trigger_icon }}"
           channel: Cameras
           group: !input notification_group
@@ -152,7 +169,7 @@ action:
           ttl: 0
           sticky: "true"
           subject: "{{ ai_response['data'] }}"
-          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)['Video'] }}"
+          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)[video_extension] }}"
           actions:
             - action: URI
               title: Live
