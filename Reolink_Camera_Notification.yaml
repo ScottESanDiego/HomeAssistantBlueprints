@@ -179,4 +179,4 @@ action:
               uri: !input talk_dashboard_url
     - delay: !input final_delay
 
-mode: queued
+mode: single
