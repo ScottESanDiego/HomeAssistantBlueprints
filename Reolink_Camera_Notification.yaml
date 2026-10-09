@@ -1,6 +1,6 @@
 blueprint:
   name: Reolink Camera Notification
-  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v4.0.1 or newer), a default AI entity, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS. 
+  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v4.1.1 or newer), a default AI entity, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS.
   domain: automation
   input:
     trigger_sensors:
@@ -31,13 +31,39 @@ blueprint:
             - "mdi:rabbit"
     action_delay:
       name: Warmup Delay
-      description: The delay in seconds before a notification is sent.  This should be enough time for the camera to upload a snapshot or two.
+      description: The delay before fetching files.  Allow enough time for the camera to start uploading files for the event, since upload waiting may return an older completed file immediately.
       default:
         hours: 0
         minutes: 0
         seconds: 3
       selector:
         duration:
+    wait_for_upload:
+      name: Wait for Upload
+      description: Wait for matching image and video uploads to finish before analyzing the image and sending the notification.
+      default: true
+      selector:
+        boolean:
+    upload_timeout:
+      name: Upload Wait Timeout
+      description: Maximum time in seconds to wait when Wait for Upload is enabled.  At timeout, Fetch Latest File falls back to completed files if available; otherwise, returned files may still be uploading.
+      default: 30
+      selector:
+        number:
+          min: 0.001
+          step: 0.001
+          mode: box
+          unit_of_measurement: s
+    upload_quiet_period:
+      name: Upload Quiet Period
+      description: Seconds that a file must remain unchanged to be considered complete when Wait for Upload is enabled and no writer-close notification is available.
+      default: 2
+      selector:
+        number:
+          min: 0.001
+          step: 0.001
+          mode: box
+          unit_of_measurement: s
     final_delay:
       name: Cooldown Time
       description: The delay seconds after the notification is sent before any further notifications will be sent.
@@ -142,6 +168,9 @@ action:
       - !input image_extension
       - !input video_extension
     target_id: !input ftp_filename
+    wait_for_upload: !input wait_for_upload
+    timeout: !input upload_timeout
+    quiet_period: !input upload_quiet_period
 - service: ai_task.generate_data
   metadata: {}
   data:
