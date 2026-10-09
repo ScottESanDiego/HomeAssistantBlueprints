@@ -1,7 +1,13 @@
 blueprint:
   name: Reolink Camera Notification
-  description: A blueprint for generating notifications based on Reolink camera triggers.  This requires that the Fetch Latest File (v4.1.1 or newer), a default AI entity, and Reolink integrations are installed.  It also assumes that the images and videos that the Reolink camera pushes via FTP can be accessed via HTTP/HTTPS.
+  description: >-
+    A blueprint for generating notifications based on Reolink camera triggers.
+    Requires Home Assistant 2026.10.0 or newer, Fetch Latest File v4.2.0 or newer,
+    a default AI task entity, and the Reolink integration. Images and videos
+    uploaded by the Reolink camera via FTP must be accessible via HTTP/HTTPS.
   domain: automation
+  homeassistant:
+    min_version: "2026.10.0"
   input:
     trigger_sensors:
       name: Binary Sensors that will trigger a notification
@@ -16,7 +22,10 @@ blueprint:
           domain: binary_sensor
     trigger_icons:
       name: Trigger Icons
-      description: The icons to use for each trigger entity (in the same order).  For example, if the first entity above is for "person", the first icon in this list would be the one you want to appear when that "person" entity was the trigger.  Note that you MUST have as many icons here as you have entities above or things will break.  (When you run this Automation manually, the icon will be a warning icon since there is no sensor that triggered it.)
+      description: >-
+        The icons for the trigger entities, in the same order. For example, the
+        first icon is used for the first sensor. Manual runs, unknown trigger
+        entities, and missing icons use mdi:alert.
       default:
         - "mdi:walk"
         - "mdi:car-side"
@@ -95,7 +104,7 @@ blueprint:
         text:
     url_root:
       name: URL root
-      description: The URL that can be used to access the files in the FTP directory.  For example, if the FTP Directory is accessible as "https://example.org/ftp/" then this would be set to "https:/example.org".
+      description: The URL that can be used to access the files in the FTP directory.  For example, if the FTP Directory is accessible as "https://example.org/ftp/" then this would be set to "https://example.org".
       default: https://example.org
     image_prompt:
       name: Image Prompt
@@ -117,7 +126,7 @@ blueprint:
     notification_group:
       name: Notification Group
       description: The group for the notification.
-      default: Camera Notification 
+      default: Camera Notification
     camera_entity_id:
       name: Camera Entity ID
       description: The entity ID of the camera for the Live view.
@@ -131,81 +140,91 @@ blueprint:
       default: /dashboard-cameras/garageoutdooreast
 
 
-trigger:
-- platform: state
-  entity_id: !input 'trigger_sensors'
-  to: "on"
-  for:
-    hours: 0
-    minutes: 0
-    seconds: 0
+triggers:
+  - trigger: state
+    entity_id: !input trigger_sensors
+    to: "on"
 
 variables:
-  # These are mostly kludges to be able to use the inputs as variables. Yuck.
-  ftp_filename_prefix: !input ftp_filename
+  # Expose blueprint inputs as variables for use in templates.
   camera_entity: !input camera_entity_id
   url_root_prefix: !input url_root
   trigger_icons: !input trigger_icons
   trigger_sensors: !input trigger_sensors
-  image_extension: !input image_extension
-  video_extension: !input video_extension
-  # When this action is run manually there is no trigger, so use "mdi:alert" as the icon rather than letting it break trying to look up the trigger.
-  trigger_icon: >
-    {% if trigger.entity_id is not undefined %}
-      {{ trigger_icons[trigger_sensors.index(trigger.entity_id)] }}
+  image_extension_input: !input image_extension
+  video_extension_input: !input video_extension
+  image_extension: "{{ image_extension_input | trim | lower | regex_replace('^\\.+', '') }}"
+  video_extension: "{{ video_extension_input | trim | lower | regex_replace('^\\.+', '') }}"
+  image_content_type: >-
+    {{ {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+        'webp': 'image/webp', 'gif': 'image/gif', 'bmp': 'image/bmp',
+        'tif': 'image/tiff', 'tiff': 'image/tiff', 'avif': 'image/avif'}
+       .get(image_extension, 'image/' ~ image_extension) }}
+  # Use a fallback icon for manual runs, unknown entities, or missing icons.
+  trigger_icon: >-
+    {% if trigger is defined and trigger.entity_id is defined
+          and trigger.entity_id in trigger_sensors %}
+      {% set icon_index = trigger_sensors.index(trigger.entity_id) %}
+      {{ trigger_icons[icon_index] if icon_index < trigger_icons | length else 'mdi:alert' }}
     {% else %}
-      {{ "mdi:alert" }}
+      mdi:alert
     {% endif %}
 
-action:
-- delay: !input action_delay
-  enabled: true
-- service: fetch_latest_file.fetch
-  data:
-    filename: !input ftp_filename
-    directory: !input ftp_directory
-    extension:
-      - !input image_extension
-      - !input video_extension
-    target_id: !input ftp_filename
-    wait_for_upload: !input wait_for_upload
-    timeout: !input upload_timeout
-    quiet_period: !input upload_quiet_period
-- service: ai_task.generate_data
-  metadata: {}
-  data:
-    task_name: Describe Picture
-    instructions: !input image_prompt
-    attachments:
-      media_content_id: "media-source://media_source{{ state_attr('sensor.fetch_latest_file', ftp_filename_prefix)[image_extension] }}"
-      media_content_type: "image/jpeg"
-  response_variable: ai_response
-- if:
+actions:
+  - delay: !input action_delay
+  - action: fetch_latest_file.fetch
+    data:
+      filename: !input ftp_filename
+      directory: !input ftp_directory
+      extension:
+        - "{{ image_extension }}"
+        - "{{ video_extension }}"
+      target_id: !input ftp_filename
+      wait_for_upload: !input wait_for_upload
+      timeout: !input upload_timeout
+      quiet_period: !input upload_quiet_period
+    response_variable: latest_files
+  - variables:
+      image_path: "{{ latest_files['result'].get(image_extension, '') }}"
+      video_path: "{{ latest_files['result'].get(video_extension, '') }}"
+  # Missing images end the run. Available timeout fallback paths remain usable.
   - condition: template
-    value_template: "{{ 'No Subject Found' not in ai_response.data }}"
-  then:
-    - service: !input notification_target
-      data:
-        message: !input notification_message
+    value_template: "{{ image_path | length > 0 }}"
+  - action: ai_task.generate_data
+    data:
+      task_name: Describe Picture
+      instructions: !input image_prompt
+      attachments:
+        media_content_id: "media-source://media_source{{ image_path }}"
+        media_content_type: "{{ image_content_type }}"
+    response_variable: ai_response
+  - if:
+      - condition: template
+        value_template: "{{ 'No Subject Found' not in ai_response.data }}"
+    then:
+      - action: !input notification_target
         data:
-          image: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)[image_extension] }}"
-          notification_icon: "{{ trigger_icon }}"
-          channel: Cameras
-          group: !input notification_group
-          visibility: private
-          priority: high
-          importance: high
-          ttl: 0
-          sticky: "true"
-          subject: "{{ ai_response['data'] }}"
-          clickAction: "{{ url_root_prefix+state_attr('sensor.fetch_latest_file', ftp_filename_prefix)[video_extension] }}"
-          actions:
-            - action: URI
-              title: Live
-              uri: entityId:{{ camera_entity }}
-            - action: URI
-              title: Talk
-              uri: !input talk_dashboard_url
-    - delay: !input final_delay
+          message: !input notification_message
+          data:
+            image: "{{ url_root_prefix ~ image_path }}"
+            notification_icon: "{{ trigger_icon }}"
+            channel: Cameras
+            group: !input notification_group
+            visibility: private
+            priority: high
+            importance: high
+            ttl: 0
+            sticky: "true"
+            subject: "{{ ai_response.data }}"
+            clickAction: "{{ (url_root_prefix ~ video_path) if video_path else ('entityId:' ~ camera_entity) }}"
+            actions:
+              - action: URI
+                title: Live
+                uri: "entityId:{{ camera_entity }}"
+              - action: URI
+                title: Talk
+                uri: !input talk_dashboard_url
+      - delay: !input final_delay
 
 mode: single
+max_exceeded: silent
