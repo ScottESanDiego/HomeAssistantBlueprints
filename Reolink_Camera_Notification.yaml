@@ -38,51 +38,55 @@ blueprint:
             - "mdi:walk"
             - "mdi:car-side"
             - "mdi:rabbit"
-    action_delay:
-      name: Warmup Delay
-      description: The delay before fetching files. The image freshness cutoff is calculated when fetching starts, so increasing this delay also moves that cutoff forward.
-      default:
-        hours: 0
-        minutes: 0
-        seconds: 3
-      selector:
-        duration:
     wait_for_upload:
       name: Wait for Upload
       description: Wait for uploads before analyzing the image and sending the notification. Select the most recent qualifying image already present, or the next qualifying image if none is present, and keep it while waiting for completion. When disabled, files are returned immediately without freshness filtering.
       default: true
       selector:
         boolean:
-    upload_timeout:
-      name: Upload Wait Timeout
-      description: Maximum time in seconds to wait when Wait for Upload is enabled. At timeout, the same selected image is returned if available, even if it may still be uploading; an older completed image is not substituted.
-      default: 30
-      selector:
-        number:
-          min: 0.001
-          step: 0.001
-          mode: box
-          unit_of_measurement: s
-    upload_quiet_period:
-      name: Upload Quiet Period
-      description: Seconds that a file must remain unchanged to be considered complete when Wait for Upload is enabled and no writer-close notification is available.
-      default: 2
-      selector:
-        number:
-          min: 0.001
-          step: 0.001
-          mode: box
-          unit_of_measurement: s
-    freshness_window:
-      name: Image Freshness Window
-      description: When Wait for Upload is enabled, only images updated within this many seconds before fetching starts, or afterward, qualify. Freshness uses filesystem upload/update time, not the camera filename or capture time. Keep the most recent qualifying image already present, or the next qualifying image if none is present, for analysis.
-      default: 5
-      selector:
-        number:
-          min: 0.001
-          step: 0.001
-          mode: box
-          unit_of_measurement: s
+    upload_tuning:
+      name: Upload Tuning
+      collapsed: true
+      input:
+        action_delay:
+          name: Warmup Delay
+          description: The delay before fetching files. The image freshness cutoff is calculated when fetching starts, so increasing this delay also moves that cutoff forward.
+          default:
+            hours: 0
+            minutes: 0
+            seconds: 0
+          selector:
+            duration:
+        upload_timeout:
+          name: Upload Wait Timeout
+          description: Maximum time in seconds to wait when Wait for Upload is enabled. At timeout, the same selected image is returned if available, even if it may still be uploading; an older completed image is not substituted.
+          default: 30
+          selector:
+            number:
+              min: 0.001
+              step: 0.001
+              mode: box
+              unit_of_measurement: s
+        upload_quiet_period:
+          name: Upload Quiet Period
+          description: Seconds that a file must remain unchanged to be considered complete when Wait for Upload is enabled and no writer-close notification is available.
+          default: 2
+          selector:
+            number:
+              min: 0.001
+              step: 0.001
+              mode: box
+              unit_of_measurement: s
+        freshness_window:
+          name: Image Freshness Window
+          description: When Wait for Upload is enabled, only images updated within this many seconds before fetching starts, or afterward, qualify. Freshness uses filesystem upload/update time, not the camera filename or capture time. Keep the most recent qualifying image already present, or the next qualifying image if none is present, for analysis.
+          default: 5
+          selector:
+            number:
+              min: 0.001
+              step: 0.001
+              mode: box
+              unit_of_measurement: s
     final_delay:
       name: Cooldown Time
       description: The delay seconds after the notification is sent before any further notifications will be sent.
@@ -100,18 +104,22 @@ blueprint:
       name: FTP Filename
       description: The filename prefix of the images and videos to be fetched.  Usually this will be what you configured the Reolink camera name to be.
       default: Reolink-OutdoorGarageEast
-    image_extension:
-      name: Image Extension
-      description: The file extension for images (e.g., jpg, png, webp)
-      default: jpg
-      selector:
-        text:
-    video_extension:
-      name: Video Extension
-      description: The file extension for videos (e.g., mp4, mov, mkv)
-      default: mp4
-      selector:
-        text:
+    file_formats:
+      name: File Formats
+      collapsed: true
+      input:
+        image_extension:
+          name: Image Extension
+          description: The file extension for images (e.g., jpg, png, webp)
+          default: jpg
+          selector:
+            text:
+        video_extension:
+          name: Video Extension
+          description: The file extension for videos (e.g., mp4, mov, mkv)
+          default: mp4
+          selector:
+            text:
     url_root:
       name: URL root
       description: The URL that can be used to access the files in the FTP directory.  For example, if the FTP Directory is accessible as "https://example.org/ftp/" then this would be set to "https://example.org".
