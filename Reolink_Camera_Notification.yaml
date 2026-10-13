@@ -2,7 +2,7 @@ blueprint:
   name: Reolink Camera Notification
   description: >-
     A blueprint for generating notifications based on Reolink camera triggers.
-    Requires Home Assistant 2026.10.0 or newer, Fetch Latest File v4.2.0 or newer,
+    Requires Home Assistant 2026.10.0 or newer, Fetch Latest File v4.2.2 or newer,
     a default AI task entity, and the Reolink integration. Images and videos
     uploaded by the Reolink camera via FTP must be accessible via HTTP/HTTPS.
   domain: automation
@@ -40,7 +40,7 @@ blueprint:
             - "mdi:rabbit"
     action_delay:
       name: Warmup Delay
-      description: The delay before fetching files.  Allow enough time for the camera to start uploading files for the event, since upload waiting may return an older completed file immediately.
+      description: The delay before fetching files. The image freshness cutoff is calculated when fetching starts, so increasing this delay also moves that cutoff forward.
       default:
         hours: 0
         minutes: 0
@@ -49,13 +49,13 @@ blueprint:
         duration:
     wait_for_upload:
       name: Wait for Upload
-      description: Wait for matching image and video uploads to finish before analyzing the image and sending the notification.
+      description: Wait for uploads before analyzing the image and sending the notification. Select the most recent qualifying image already present, or the next qualifying image if none is present, and keep it while waiting for completion. When disabled, files are returned immediately without freshness filtering.
       default: true
       selector:
         boolean:
     upload_timeout:
       name: Upload Wait Timeout
-      description: Maximum time in seconds to wait when Wait for Upload is enabled.  At timeout, Fetch Latest File falls back to completed files if available; otherwise, returned files may still be uploading.
+      description: Maximum time in seconds to wait when Wait for Upload is enabled. At timeout, the same selected image is returned if available, even if it may still be uploading; an older completed image is not substituted.
       default: 30
       selector:
         number:
@@ -67,6 +67,16 @@ blueprint:
       name: Upload Quiet Period
       description: Seconds that a file must remain unchanged to be considered complete when Wait for Upload is enabled and no writer-close notification is available.
       default: 2
+      selector:
+        number:
+          min: 0.001
+          step: 0.001
+          mode: box
+          unit_of_measurement: s
+    freshness_window:
+      name: Image Freshness Window
+      description: When Wait for Upload is enabled, only images updated within this many seconds before fetching starts, or afterward, qualify. Freshness uses filesystem upload/update time, not the camera filename or capture time. Keep the most recent qualifying image already present, or the next qualifying image if none is present, for analysis.
+      default: 5
       selector:
         number:
           min: 0.001
@@ -183,6 +193,9 @@ actions:
       wait_for_upload: !input wait_for_upload
       timeout: !input upload_timeout
       quiet_period: !input upload_quiet_period
+      fresh_extensions:
+        - "{{ image_extension }}"
+      freshness_window: !input freshness_window
     response_variable: latest_files
   - variables:
       image_path: "{{ latest_files['result'].get(image_extension, '') }}"
