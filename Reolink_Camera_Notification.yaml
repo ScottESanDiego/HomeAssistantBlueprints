@@ -2,7 +2,7 @@ blueprint:
   name: Reolink Camera Notification
   description: >-
     A blueprint for generating notifications based on Reolink camera triggers.
-    Requires Home Assistant 2026.10.0 or newer, Fetch Latest File v4.2.2 or newer,
+    Requires Home Assistant 2026.10.0 or newer, Fetch Latest File v4.3.0 or newer,
     a default AI task entity, and the Reolink integration. Images and videos
     uploaded by the Reolink camera via FTP must be accessible via HTTP/HTTPS.
   domain: automation
@@ -40,7 +40,7 @@ blueprint:
             - "mdi:rabbit"
     wait_for_upload:
       name: Wait for Upload
-      description: Wait for uploads before analyzing the image and sending the notification. Select the most recent qualifying image already present, or the next qualifying image if none is present, and keep it while waiting for completion. When disabled, files are returned immediately without freshness filtering.
+      description: Wait for uploads before analyzing the image and sending the notification. Select Image Position from the latest qualifying upload sequence and keep that image while waiting for completion. When disabled, return the newest files immediately without sequence or freshness filtering.
       default: true
       selector:
         boolean:
@@ -48,6 +48,15 @@ blueprint:
       name: Upload Tuning
       collapsed: true
       input:
+        burst_position:
+          name: Image Position
+          description: Select this image from the start of the latest qualifying upload sequence. Use 1 for the first image, 2 for the second, or 3 for the third; any positive whole number is allowed. If the sequence ends or waiting times out before that image arrives, use the last size-qualified image from the same sequence. Only applies when Wait for Upload is enabled.
+          default: 1
+          selector:
+            number:
+              min: 1
+              step: 1
+              mode: box
         action_delay:
           name: Warmup Delay
           description: The delay before fetching files. The image freshness cutoff is calculated when fetching starts, so increasing this delay also moves that cutoff forward.
@@ -59,7 +68,7 @@ blueprint:
             duration:
         upload_timeout:
           name: Upload Wait Timeout
-          description: Maximum time in seconds to wait when Wait for Upload is enabled. At timeout, the same selected image is returned if available, even if it may still be uploading; an older completed image is not substituted.
+          description: Maximum time in seconds to wait when Wait for Upload is enabled. At timeout, keep the selected image if available, even if it may still be uploading. If Image Position has not arrived, use the last size-qualified image from that sequence. An image from an older sequence is not substituted.
           default: 30
           selector:
             number:
@@ -79,8 +88,28 @@ blueprint:
               unit_of_measurement: s
         freshness_window:
           name: Image Freshness Window
-          description: When Wait for Upload is enabled, only images updated within this many seconds before fetching starts, or afterward, qualify. Freshness uses filesystem upload/update time, not the camera filename or capture time. Keep the most recent qualifying image already present, or the next qualifying image if none is present, for analysis.
+          description: When Wait for Upload is enabled, the latest upload sequence qualifies if its newest image was updated within this many seconds before fetching starts, or afterward. The selected image may be older. Uses filesystem upload/update time, not the camera filename or capture time.
           default: 5
+          selector:
+            number:
+              min: 0.001
+              step: 0.001
+              mode: box
+              unit_of_measurement: s
+        burst_gap:
+          name: Upload Sequence Gap
+          description: A gap of at least this many seconds between image upload/update times starts a new sequence. Also closes a sequence after this much upload inactivity. This groups uploads heuristically; it does not identify the camera's true recording events.
+          default: 5
+          selector:
+            number:
+              min: 0.001
+              step: 0.001
+              mode: box
+              unit_of_measurement: s
+        lookback_window:
+          name: Upload Sequence Lookback
+          description: Search this many seconds before fetching starts for the start of the latest upload sequence. If its start lies beyond this fixed history window or a scan limit hides it, return no image rather than guessing Image Position.
+          default: 60
           selector:
             number:
               min: 0.001
@@ -204,6 +233,9 @@ actions:
       fresh_extensions:
         - "{{ image_extension }}"
       freshness_window: !input freshness_window
+      burst_position: !input burst_position
+      burst_gap: !input burst_gap
+      lookback_window: !input lookback_window
     response_variable: latest_files
   - variables:
       image_path: "{{ latest_files['result'].get(image_extension, '') }}"
